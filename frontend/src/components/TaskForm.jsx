@@ -21,9 +21,11 @@ export default function TaskForm({ task, onSubmit, onClose }) {
         description: '',
         notes: '',
         category: 'study',
+        task_type: 'specific_date',
         due_date: '',
         effort_hours: '',
         complexity_level: 3,
+        requires_proof: false,
     });
     const [error, setError] = useState('');
 
@@ -34,16 +36,21 @@ export default function TaskForm({ task, onSubmit, onClose }) {
                 description: task.description || '',
                 notes: task.notes || '',
                 category: task.category || 'study',
+                task_type: task.task_type || 'specific_date',
                 due_date: task.due_date ? task.due_date.slice(0, 16) : '',
                 effort_hours: task.effort_hours || '',
                 complexity_level: task.complexity_level || 3,
+                requires_proof: task.requires_proof || false,
             });
         }
     }, [task]);
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -54,8 +61,22 @@ export default function TaskForm({ task, onSubmit, onClose }) {
             setError('Title is required');
             return;
         }
-        if (!formData.due_date) {
-            setError('Due date is required');
+        let finalDueDate = formData.due_date;
+
+        // Auto-calculate dates for daily/weekly
+        if (formData.task_type === 'daily') {
+            const endOfToday = new Date();
+            endOfToday.setHours(23, 59, 59, 999);
+            finalDueDate = endOfToday.toISOString();
+        } else if (formData.task_type === 'weekly') {
+            const endOfWeek = new Date();
+            endOfWeek.setDate(endOfWeek.getDate() + (7 - endOfWeek.getDay())); // Sunday
+            endOfWeek.setHours(23, 59, 59, 999);
+            finalDueDate = endOfWeek.toISOString();
+        }
+
+        if (!finalDueDate && formData.task_type === 'specific_date') {
+            setError('Due date is required for a specific date task');
             return;
         }
         if (!formData.effort_hours || parseFloat(formData.effort_hours) <= 0) {
@@ -68,7 +89,7 @@ export default function TaskForm({ task, onSubmit, onClose }) {
                 ...formData,
                 effort_hours: parseFloat(formData.effort_hours),
                 complexity_level: parseInt(formData.complexity_level),
-                due_date: new Date(formData.due_date).toISOString(),
+                due_date: formData.task_type === 'specific_date' ? new Date(finalDueDate).toISOString() : finalDueDate,
             });
         } catch (err) {
             const detail = err.response?.data?.detail;
@@ -146,6 +167,28 @@ export default function TaskForm({ task, onSubmit, onClose }) {
                         </div>
                     </div>
 
+                    {/* Task Type */}
+                    <div>
+                        <label className="block text-sm font-medium text-surface-200/80 mb-1.5">Task Type</label>
+                        <div className="flex gap-3">
+                            {['daily', 'weekly', 'specific_date'].map((type) => (
+                                <label key={type} className="flex-1 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="task_type"
+                                        value={type}
+                                        checked={formData.task_type === type}
+                                        onChange={handleChange}
+                                        className="peer sr-only"
+                                    />
+                                    <div className="text-center px-2 py-2 text-xs font-semibold rounded-lg border transition-all duration-200 bg-white/5 border-white/10 text-surface-200/50 peer-checked:bg-primary-600/20 peer-checked:text-primary-300 peer-checked:border-primary-500/30 hover:border-white/20">
+                                        {type === 'daily' ? '📅 Daily' : type === 'weekly' ? '⏳ Weekly' : '📌 Specific Date'}
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Description */}
                     <div>
                         <label className="block text-sm font-medium text-surface-200/80 mb-1.5">Description</label>
@@ -177,19 +220,28 @@ export default function TaskForm({ task, onSubmit, onClose }) {
 
                     {/* Due Date + Effort Hours */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-surface-200/80 mb-1.5">Due Date</label>
-                            <input
-                                id="task-due-date"
-                                type="datetime-local"
-                                name="due_date"
-                                value={formData.due_date}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white
-                           focus:outline-none focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/20 transition-all
-                           [color-scheme:dark]"
-                            />
-                        </div>
+                        {formData.task_type === 'specific_date' ? (
+                            <div>
+                                <label className="block text-sm font-medium text-surface-200/80 mb-1.5">Due Date</label>
+                                <input
+                                    id="task-due-date"
+                                    type="datetime-local"
+                                    name="due_date"
+                                    value={formData.due_date}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white
+                               focus:outline-none focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/20 transition-all
+                               [color-scheme:dark]"
+                                />
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-sm font-medium text-surface-200/80 mb-1.5">Due Date</label>
+                                <div className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-surface-200/50 cursor-not-allowed text-sm">
+                                    Auto-set to end of {formData.task_type === 'daily' ? 'day' : 'week'}
+                                </div>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-sm font-medium text-surface-200/80 mb-1.5">Effort (hours)</label>
                             <input
@@ -226,10 +278,28 @@ export default function TaskForm({ task, onSubmit, onClose }) {
                          [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary-500
                          [&::-webkit-slider-thumb]:shadow-glow [&::-webkit-slider-thumb]:cursor-pointer"
                         />
-                        <div className="flex justify-between text-xs text-surface-200/40 mt-1">
+                        <div className="flex justify-between text-xs text-surface-200/40 mt-1 mb-4">
                             <span>Easy</span>
                             <span>Medium</span>
                             <span>Hard</span>
+                        </div>
+
+                        {/* Requires Proof Toggle */}
+                        <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl mt-4">
+                            <input
+                                id="requires-proof-checkbox"
+                                type="checkbox"
+                                name="requires_proof"
+                                checked={formData.requires_proof}
+                                onChange={handleChange}
+                                className="w-5 h-5 rounded border-white/20 bg-surface-950 text-primary-500 focus:ring-primary-500/50 focus:ring-offset-surface-900 transition-colors"
+                            />
+                            <div>
+                                <label htmlFor="requires-proof-checkbox" className="text-sm font-medium text-white cursor-pointer select-none">
+                                    Mandatory Proof Image
+                                </label>
+                                <p className="text-[10px] text-surface-200/50 mt-0.5">Require an image or screenshot to mark this task as complete</p>
+                            </div>
                         </div>
                     </div>
 

@@ -41,6 +41,8 @@ class Task(Base):
     due_date = Column(DateTime, nullable=False)
     effort_hours = Column(Float, nullable=False)
     complexity_level = Column(Integer, nullable=False)  # 1–5
+    task_type = Column(String(20), default="specific_date")  # daily | weekly | specific_date
+    requires_proof = Column(Integer, default=0)  # 0=Optional, 1=Mandatory (SQLite boolean)
     priority_score = Column(Float, default=0.0)
     status = Column(String(20), default="active")  # active | completed
     completed_at = Column(DateTime, nullable=True)

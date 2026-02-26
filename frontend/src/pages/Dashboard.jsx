@@ -1,40 +1,31 @@
 /**
- * Dashboard — Main view with charts, stats, and task list.
+ * Dashboard — Main view with charts and stats.
  */
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { taskAPI, statsAPI } from '../services/api';
+import { statsAPI } from '../services/api';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import TaskCard from '../components/TaskCard';
-import TaskForm from '../components/TaskForm';
 import StreakCard from '../components/StreakCard';
 import WeeklyChart from '../components/WeeklyChart';
 import CategoryChart from '../components/CategoryChart';
 
 export default function Dashboard() {
     const { user } = useAuth();
-    const [tasks, setTasks] = useState([]);
     const [stats, setStats] = useState(null);
     const [weekly, setWeekly] = useState(null);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Modal & filter state
-    const [showForm, setShowForm] = useState(false);
-    const [editTask, setEditTask] = useState(null);
-    const [activeFilter, setActiveFilter] = useState('all');
-
-    // Fetch all data
+    // Fetch stats data
     const loadData = async () => {
         try {
-            const [tasksRes, statsRes, weeklyRes, catRes] = await Promise.all([
-                taskAPI.getAll(activeFilter !== 'all' ? activeFilter : null),
+            const [statsRes, weeklyRes, catRes] = await Promise.all([
                 statsAPI.getSummary(),
                 statsAPI.getWeekly(),
                 statsAPI.getCategories(),
             ]);
-            setTasks(tasksRes.data);
             setStats(statsRes.data);
             setWeekly(weeklyRes.data);
             setCategories(catRes.data);
@@ -47,39 +38,7 @@ export default function Dashboard() {
 
     useEffect(() => {
         loadData();
-    }, [activeFilter]);
-
-    // Task CRUD handlers
-    const handleCreate = async (data) => {
-        await taskAPI.create(data);
-        setShowForm(false);
-        loadData();
-    };
-
-    const handleUpdate = async (data) => {
-        await taskAPI.update(editTask.id, data);
-        setEditTask(null);
-        loadData();
-    };
-
-    const handleComplete = async (id) => {
-        await taskAPI.complete(id);
-        loadData();
-    };
-
-    const handleDelete = async (id) => {
-        if (window.confirm('Delete this task?')) {
-            await taskAPI.delete(id);
-            loadData();
-        }
-    };
-
-    const filterTabs = [
-        { key: 'all', label: 'All Tasks', icon: '📋' },
-        { key: 'today', label: 'Today', icon: '📅' },
-        { key: 'upcoming', label: 'Upcoming', icon: '⏳' },
-        { key: 'completed', label: 'Completed', icon: '✅' },
-    ];
+    }, []);
 
     if (loading) {
         return (
@@ -97,25 +56,24 @@ export default function Dashboard() {
             <Navbar />
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Welcome + Create Button */}
-                <div className="flex items-center justify-between mb-8">
+                {/* Welcome + View Tasks Button */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold text-white">
                             Welcome back, <span className="bg-gradient-to-r from-primary-400 to-primary-200 bg-clip-text text-transparent">{user?.name}</span>
                         </h1>
                         <p className="text-surface-200/50 mt-1">Here's your productivity overview</p>
                     </div>
-                    <button
-                        id="create-task-btn"
-                        onClick={() => setShowForm(true)}
+                    <Link
+                        to="/tasks"
                         className="px-5 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400
-                            text-white font-semibold rounded-xl shadow-glow hover:shadow-glow-lg transition-all duration-300 flex items-center gap-2"
+                            text-white font-semibold rounded-xl shadow-glow hover:shadow-glow-lg transition-all duration-300 flex items-center justify-center gap-2"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                         </svg>
-                        New Task
-                    </button>
+                        Manage Tasks
+                    </Link>
                 </div>
 
                 {/* Stats Cards Row */}
@@ -152,59 +110,10 @@ export default function Dashboard() {
                         <MiniStat label="Completion Rate" value={`${(stats.completion_rate * 100).toFixed(0)}%`} sublabel="finished tasks" />
                     </div>
                 )}
-
-                {/* Filter Tabs */}
-                <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-                    {filterTabs.map((tab) => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setActiveFilter(tab.key)}
-                            className={`px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-200 whitespace-nowrap
-                                ${activeFilter === tab.key
-                                    ? 'bg-primary-600/20 text-primary-300 border-primary-500/30'
-                                    : 'bg-white/5 text-surface-200/50 border-white/10 hover:border-white/20 hover:text-white'
-                                }`}
-                        >
-                            <span className="mr-1.5">{tab.icon}</span>
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Task List */}
-                <div className="space-y-3">
-                    {tasks.length === 0 ? (
-                        <div className="text-center py-16 text-surface-200/30">
-                            <p className="text-4xl mb-3">📝</p>
-                            <p className="text-lg">No tasks found</p>
-                            <p className="text-sm mt-1">Create your first task to get started!</p>
-                        </div>
-                    ) : (
-                        tasks.map((task) => (
-                            <TaskCard
-                                key={task.id}
-                                task={task}
-                                onEdit={(t) => setEditTask(t)}
-                                onDelete={handleDelete}
-                                onComplete={handleComplete}
-                            />
-                        ))
-                    )}
-                </div>
             </main>
-
-            {/* Create/Edit Modal */}
-            {(showForm || editTask) && (
-                <TaskForm
-                    task={editTask}
-                    onSubmit={editTask ? handleUpdate : handleCreate}
-                    onClose={() => { setShowForm(false); setEditTask(null); }}
-                />
-            )}
         </div>
     );
 }
-
 
 // ── Helper Components ────────────────────────────────────────
 

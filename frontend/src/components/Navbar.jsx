@@ -35,6 +35,8 @@ export default function Navbar() {
 
                         {/* Nav tabs */}
                         <div className="hidden sm:flex items-center gap-1">
+                            <NavLink to="/home" active={isActive('/home')} label="Home" icon="🏠" />
+                            <NavLink to="/tasks" active={isActive('/tasks')} label="Tasks" icon="📝" />
                             <NavLink to="/dashboard" active={isActive('/dashboard')} label="Dashboard" icon="📊" />
                             <NavLink to="/profile" active={isActive('/profile')} label="Profile" icon="👤" />
                         </div>
@@ -64,6 +66,8 @@ export default function Navbar() {
 
             {/* Mobile nav */}
             <div className="sm:hidden flex items-center justify-center gap-2 pb-2 px-4">
+                <NavLink to="/home" active={isActive('/home')} label="Home" icon="🏠" />
+                <NavLink to="/tasks" active={isActive('/tasks')} label="Tasks" icon="📝" />
                 <NavLink to="/dashboard" active={isActive('/dashboard')} label="Dashboard" icon="📊" />
                 <NavLink to="/profile" active={isActive('/profile')} label="Profile" icon="👤" />
             </div>

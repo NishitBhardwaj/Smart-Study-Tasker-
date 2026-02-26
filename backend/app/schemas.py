@@ -60,6 +60,8 @@ class TaskCreate(BaseModel):
     due_date: datetime
     effort_hours: float = Field(..., gt=0, le=100)
     complexity_level: int = Field(..., ge=1, le=5)
+    task_type: Optional[str] = Field("specific_date", pattern="^(daily|weekly|specific_date)$")
+    requires_proof: Optional[bool] = False
 
 
 class TaskUpdate(BaseModel):
@@ -71,6 +73,8 @@ class TaskUpdate(BaseModel):
     due_date: Optional[datetime] = None
     effort_hours: Optional[float] = Field(None, gt=0, le=100)
     complexity_level: Optional[int] = Field(None, ge=1, le=5)
+    task_type: Optional[str] = Field(None, pattern="^(daily|weekly|specific_date)$")
+    requires_proof: Optional[bool] = None
     status: Optional[str] = None
 
 
@@ -85,6 +89,8 @@ class TaskResponse(BaseModel):
     due_date: datetime
     effort_hours: float
     complexity_level: int
+    task_type: str
+    requires_proof: bool
     priority_score: float
     status: str
     completed_at: Optional[datetime] = None

@@ -11,7 +11,7 @@ const CATEGORY_BADGES = {
     other: { emoji: '🔖', color: 'bg-slate-500/20 text-slate-400 border-slate-500/30' },
 };
 
-export default function TaskCard({ task, onEdit, onDelete, onComplete }) {
+export default function TaskCard({ task, onEdit, onDelete, onComplete, isHomeView, onCheck }) {
     // Calculate days remaining
     const daysRemaining = Math.ceil(
         (new Date(task.due_date) - new Date()) / (1000 * 60 * 60 * 24)
@@ -49,17 +49,41 @@ export default function TaskCard({ task, onEdit, onDelete, onComplete }) {
             <div className="p-5">
                 {/* Header: Title + Badges */}
                 <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            {/* Category badge */}
-                            <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-md border ${categoryBadge.color}`}>
-                                <span className="mr-1">{categoryBadge.emoji}</span>
-                                {task.category}
-                            </span>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {isHomeView && !isCompleted && (
+                            <button
+                                onClick={() => onCheck(task)}
+                                className="shrink-0 w-6 h-6 mt-0.5 rounded-md border-2 border-surface-200/50 hover:border-primary-400 bg-surface-950/50 flex items-center justify-center transition-all duration-200"
+                            >
+                                <svg className="w-3.5 h-3.5 text-transparent hover:text-primary-400/50 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                            </button>
+                        )}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                {/* Category badge */}
+                                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-md border ${categoryBadge.color}`}>
+                                    <span className="mr-1">{categoryBadge.emoji}</span>
+                                    {task.category}
+                                </span>
+                                {/* Type Badge */}
+                                {task.task_type && task.task_type !== 'specific_date' && (
+                                    <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium text-surface-200/50 uppercase tracking-wider">
+                                        {task.task_type === 'daily' ? '📅 Daily' : '⏳ Weekly'}
+                                    </span>
+                                )}
+                                {/* Proof Mandatory indicator */}
+                                {task.requires_proof && (
+                                    <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-md" title="Mandatory Proof Required">
+                                        📸 Proof Req.
+                                    </span>
+                                )}
+                            </div>
+                            <h3 className={`font-semibold text-lg leading-tight ${isCompleted ? 'line-through text-surface-200/50' : 'text-white'}`}>
+                                {task.title}
+                            </h3>
                         </div>
-                        <h3 className={`font-semibold text-lg leading-tight ${isCompleted ? 'line-through text-surface-200/50' : 'text-white'}`}>
-                            {task.title}
-                        </h3>
                     </div>
                     <span className={`shrink-0 px-3 py-1 text-xs font-semibold rounded-full border ${priority.color}`}>
                         <span className={`inline-block w-1.5 h-1.5 rounded-full ${priority.dot} mr-1.5`}></span>
@@ -118,36 +142,38 @@ export default function TaskCard({ task, onEdit, onDelete, onComplete }) {
                     </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 pt-3 border-t border-white/5">
-                    <button
-                        id={`complete-task-${task.id}`}
-                        onClick={() => onComplete(task.id)}
-                        className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-all duration-200
-              ${isCompleted
-                                ? 'bg-accent-500/20 text-accent-400 hover:bg-accent-500/30'
-                                : 'bg-primary-600/20 text-primary-300 hover:bg-primary-600/30'
-                            }`}
-                    >
-                        {isCompleted ? '↩ Reopen' : '✓ Complete'}
-                    </button>
-                    <button
-                        id={`edit-task-${task.id}`}
-                        onClick={() => onEdit(task)}
-                        className="py-2 px-3 text-xs font-medium text-surface-200/70 bg-white/5 hover:bg-white/10 
-                       rounded-lg transition-all duration-200"
-                    >
-                        Edit
-                    </button>
-                    <button
-                        id={`delete-task-${task.id}`}
-                        onClick={() => onDelete(task.id)}
-                        className="py-2 px-3 text-xs font-medium text-red-400/70 bg-red-500/10 hover:bg-red-500/20 
-                       rounded-lg transition-all duration-200"
-                    >
-                        Delete
-                    </button>
-                </div>
+                {/* Action Buttons (Hidden on Home) */}
+                {!isHomeView && (
+                    <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+                        <button
+                            id={`complete-task-${task.id}`}
+                            onClick={() => onComplete(task.id)}
+                            className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-all duration-200
+                  ${isCompleted
+                                    ? 'bg-accent-500/20 text-accent-400 hover:bg-accent-500/30'
+                                    : 'bg-primary-600/20 text-primary-300 hover:bg-primary-600/30'
+                                }`}
+                        >
+                            {isCompleted ? '↩ Reopen' : '✓ Complete'}
+                        </button>
+                        <button
+                            id={`edit-task-${task.id}`}
+                            onClick={() => onEdit(task)}
+                            className="py-2 px-3 text-xs font-medium text-surface-200/70 bg-white/5 hover:bg-white/10 
+                           rounded-lg transition-all duration-200"
+                        >
+                            Edit
+                        </button>
+                        <button
+                            id={`delete-task-${task.id}`}
+                            onClick={() => onDelete(task.id)}
+                            className="py-2 px-3 text-xs font-medium text-red-400/70 bg-red-500/10 hover:bg-red-500/20 
+                           rounded-lg transition-all duration-200"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
