@@ -19,14 +19,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS – allow frontend dev server and Docker frontend
+# CORS – allow all origins for production (restrict later if needed)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://frontend:80",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
