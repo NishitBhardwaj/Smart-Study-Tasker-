@@ -3,10 +3,11 @@ Task CRUD routes with automatic priority calculation, filtering, and proof uploa
 """
 
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status, Request, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
+from fastapi_cache.decorator import cache
 from ..database import get_db
 from ..models import Task, User
 from ..schemas import TaskCreate, TaskUpdate, TaskResponse
@@ -15,9 +16,17 @@ from ..priority import calculate_priority
 
 router = APIRouter(prefix="/api/tasks", tags=["Tasks"])
 
+def user_cache_key_builder(func, namespace: Optional[str] = "", request: Request = None, response: Response = None, *args, **kwargs):
+    # Extract the authenticated user from the decorated function's kwargs
+    current_user = kwargs.get("current_user")
+    user_id = current_user.id if current_user else "anon"
+    # Build a unique key combining user ID, path, and query parameters
+    return f"{namespace}:{func.__name__}:{user_id}:{request.url.path}:{request.query_params}"
 
 @router.get("/", response_model=List[TaskResponse])
+@cache(expire=60, key_builder=user_cache_key_builder)
 def get_tasks(
+    request: Request,
     filter: Optional[str] = Query(None, description="today|upcoming|completed|all"),
     category: Optional[str] = Query(None, description="Filter by category"),
     db: Session = Depends(get_db),
@@ -32,6 +41,43 @@ def get_tasks(
     - `all` (default): all tasks
     """
     query = db.query(Task).filter(Task.user_id == current_user.id)
+
+    # --- AUTO-SPAWN DAILY TASKS FOR TODAY ---
+    all_user_tasks = query.all()
+    now_utc = datetime.now(timezone.utc)
+    today_utc = now_utc.date()
+    latest_dailies = {}
+    
+    for t in all_user_tasks:
+        if t.task_type == "daily":
+            key = t.title.strip().lower()
+            if key not in latest_dailies or t.created_at > latest_dailies[key].created_at:
+                latest_dailies[key] = t
+                
+    updated_dailies = False
+    for latest in latest_dailies.values():
+        if latest.status == "completed" and latest.completed_at and latest.completed_at.date() < today_utc:
+            # Spawn the missing replica for today using yesterday's blueprint
+            new_task = Task(
+                user_id=current_user.id,
+                title=latest.title,
+                description=latest.description,
+                notes=latest.notes,
+                category=latest.category,
+                due_date=now_utc,
+                effort_hours=latest.effort_hours,
+                complexity_level=latest.complexity_level,
+                task_type="daily",
+                requires_proof=latest.requires_proof,
+                priority_score=latest.priority_score,
+                status="active"
+            )
+            db.add(new_task)
+            updated_dailies = True
+
+    if updated_dailies:
+        db.commit()
+    # ----------------------------------------
 
     if filter == "today":
         today = datetime.now(timezone.utc).date()
@@ -150,6 +196,14 @@ def complete_task(
     if task.status == "active":
         task.status = "completed"
         task.completed_at = datetime.now(timezone.utc)
+        
+        # Trigger background Celery task for heavy analytics
+        from ..worker import process_task_completion_analytics
+        try:
+            process_task_completion_analytics.delay(task.id, current_user.id)
+        except Exception as e:
+            # Prevent failure of main transaction if RabbitMQ is down
+            print(f"[WARNING] Could not dispatch background task: {e}")
     else:
         task.status = "active"
         task.completed_at = None
